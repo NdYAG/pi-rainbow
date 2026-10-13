@@ -1,6 +1,12 @@
-# pi-rainbow
+<h1 align="center">pi-rainbow 🌈</h1>
 
-A [pi](https://pi.dev) extension that renders CSS color values in assistant messages as terminal color swatches, similar to Emacs `rainbow-mode`. The foreground is black or white, whichever has higher WCAG contrast against the swatch.
+A [pi](https://pi.dev) extension that renders color values in assistant messages as terminal color swatches, similar to Emacs `rainbow-mode`. The foreground is black or white, whichever has higher WCAG contrast against the swatch.
+
+## Screenshots
+
+| Dark | Light |
+| --- | --- |
+| ![Dark theme](docs/dark.png) | ![Light theme](docs/light.png) |
 
 ## Install
 
