@@ -26,7 +26,8 @@ Comma and space syntax, `/ alpha`, percentages, and `deg`/`turn`/`rad`/`grad` hu
 - Applies to finalized assistant text only. User messages, thinking blocks, and streaming output are untouched, so swatches appear when the message completes.
 - Standalone values in prose become swatches.
 - An inline code span whose whole content is one color value, such as `` `#ff0000` ``, also becomes a swatch. Inline code with other content, such as `` `color: #fff` ``, is unchanged.
-- Fenced code blocks, headings, blockquotes, links, and URLs are unchanged.
+- Color values inside fenced code blocks become swatches too, without padding so columns stay aligned. Syntax highlighting is kept: the block is highlighted with pi's highlighter first, then swatches are inserted. This applies to blocks with no language or a color-friendly one (CSS/SCSS/Less, HTML/XML/SVG, JS/TS, JSON, YAML, TOML, ...). Other languages, where `#fff` is more likely a comment or directive, are unchanged.
+- Headings, blockquotes, links, URLs, and `url(#id)` references are unchanged.
 
 ## Limits
 
@@ -35,6 +36,7 @@ Comma and space syntax, `/ alpha`, percentages, and `deg`/`turn`/`rad`/`grad` hu
 - `oklch()` and `oklab()` are converted to sRGB with a per-channel clamp, not CSS gamut mapping, so out-of-gamut colors can differ from a browser.
 - Not supported: `color()`, `lab()`, `lch()`, `hwb()`, `var()`, `calc()`, relative color syntax.
 - It rewrites Markdown before parsing, so other markdown transformers can interact with the injected escape sequences.
+- Colorized code blocks carry a zero-width marker after the language name (` ```css\u200b `) so pi does not highlight them a second time. Only blocks that contain a color are rewritten.
 
 ## Development
 

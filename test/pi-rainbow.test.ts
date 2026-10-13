@@ -1,5 +1,13 @@
-import { describe, expect, test } from "vitest";
+import { initTheme } from "@earendil-works/pi-coding-agent";
+import { beforeAll, describe, expect, test } from "vitest";
 import { transformRainbowMarkdown } from "../src/pi-rainbow.ts";
+
+beforeAll(async () => {
+	initTheme("dark", false);
+	// pi loads non-eager grammars (css, html, ...) after startup.
+	const allLanguages: string = "highlight.js/lib/index.js";
+	await import(allLanguages);
+});
 
 // Strips SGR sequences only, which is all this extension emits.
 const stripAnsi = (text: string) => text.replace(/\x1b\[[\d;]*m/g, "");
@@ -49,19 +57,76 @@ describe("pi-rainbow extension", () => {
 		}
 	});
 
-	test("preserves fenced code, URLs, and link destinations", () => {
-		const markdown = [
-			"Inline `x #fff`, [#abc](https://example.test/#def), and [site](https://example.test/#abc).",
-			"```css",
-			"body { color: #fff; }",
-			"```",
-		].join("\n");
-
+	test("preserves URLs and link destinations", () => {
+		const markdown = "Inline `x #fff`, [#abc](https://example.test/#def), and [site](https://example.test/#abc).";
 		expect(transformRainbowMarkdown(markdown, assistantContext)).toBe(markdown);
 	});
 
 	test("leaves invalid RGB channel values unchanged", () => {
 		const markdown = "Invalid: rgb(256, 0, 0).";
 		expect(transformRainbowMarkdown(markdown, assistantContext)).toBe(markdown);
+	});
+
+	describe("fenced code blocks", () => {
+		const fence = (lang: string, ...body: string[]) => [`\`\`\`${lang}`, ...body, "```"].join("\n");
+
+		test("highlights the block and inserts unpadded swatches", () => {
+			const result = transformRainbowMarkdown(
+				fence("css", "--red:  oklch(0.7 0.18 25);", "--blue: #3b82f6;"),
+				assistantContext,
+			);
+			const lines = result.split("\n");
+
+			// Zero-width marker keeps pi from highlighting the pre-highlighted lines again.
+			expect(lines[0]).toBe("```css\u200b");
+			expect(result.match(/\x1b\[48;/g)).toHaveLength(2);
+			expect(lines.slice(1).map(stripAnsi)).toEqual(["--red:  oklch(0.7 0.18 25);", "--blue: #3b82f6;", "```"]);
+		});
+
+		test("restores the surrounding style after a swatch", () => {
+			const [, line] = transformRainbowMarkdown(fence("css", "a {} /* was #fff here */"), assistantContext).split(
+				"\n",
+			);
+			const [beforeSwatch, afterSwatch] = line.split("#fff");
+			const commentColor = /(\x1b\[38;[\d;]+m)\/\*/.exec(beforeSwatch)?.[1];
+
+			expect(commentColor).toBeTruthy();
+			expect(afterSwatch.startsWith(`\x1b[39m\x1b[49m\x1b[22m${commentColor}`)).toBe(true);
+		});
+
+		test("colors blocks without a language", () => {
+			const result = transformRainbowMarkdown(fence("", "plain #00ff00 here"), assistantContext);
+			expect(result.split("\n")[0]).toBe("```\u200b");
+			expect(result).toContain("48;2;0;255;0m#00ff00");
+		});
+
+		test("keeps the fence indentation of nested blocks", () => {
+			const markdown = ["- item", "", "  ```js", '  const c = "#ff0000";', "  ```"].join("\n");
+			const lines = transformRainbowMarkdown(markdown, assistantContext).split("\n");
+
+			expect(lines[2]).toBe("  ```js\u200b");
+			expect(stripAnsi(lines[3])).toBe('  const c = "#ff0000";');
+			expect(lines[4]).toBe("  ```");
+		});
+
+		test("leaves blocks unchanged when there is nothing to color", () => {
+			for (const markdown of [
+				fence("c", "#define FEED 1 // #fff"),
+				fence("python", "x = 1  # add"),
+				fence("css", "a { color: red; }"),
+				fence("css", "b { fill: url(#abc); x: my-rgb(1, 2, 3); }"),
+				"```css\na: #fff;",
+				"~~~css\na: #fff;\n```",
+			]) {
+				expect(transformRainbowMarkdown(markdown, assistantContext)).toBe(markdown);
+			}
+		});
+
+		test("does not treat code block content as prose", () => {
+			const markdown = fence("python", "color = '#fff'");
+			expect(transformRainbowMarkdown(`${markdown}\nafter #fff`, assistantContext)).toBe(
+				`${markdown}\nafter ${transformRainbowMarkdown("#fff", assistantContext)}`,
+			);
+		});
 	});
 });
