@@ -6,7 +6,7 @@ A [pi](https://pi.dev) extension that renders color values in assistant messages
 
 | Dark | Light |
 | --- | --- |
-| ![Dark theme](docs/dark.png) | ![Light theme](docs/light.png) |
+| ![Dark theme](https://daix.me/pi-rainbow/dark.png) | ![Light theme](https://daix.me/pi-rainbow/light.png) |
 
 ## Install
 

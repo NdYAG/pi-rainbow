@@ -7,7 +7,8 @@
 	"type": "module",
 	"files": ["src", "README.md", "LICENSE"],
 	"pi": {
-		"extensions": ["./src/pi-rainbow.ts"]
+		"extensions": ["./src/pi-rainbow.ts"],
+		"image": "https://daix.me/pi-rainbow/dark.png"
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
