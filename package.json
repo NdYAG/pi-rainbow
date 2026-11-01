@@ -1,13 +1,24 @@
 {
 	"name": "pi-rainbow",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "Pi extension that renders CSS color values in assistant messages as terminal color swatches",
-	"keywords": ["pi-package", "pi-extension", "color", "rainbow-mode"],
+	"keywords": [
+		"pi-package",
+		"pi-extension",
+		"color",
+		"rainbow-mode"
+	],
 	"license": "MIT",
 	"type": "module",
-	"files": ["src", "README.md", "LICENSE"],
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
 	"pi": {
-		"extensions": ["./src/pi-rainbow.ts"]
+		"extensions": [
+			"./src/pi-rainbow.ts"
+		]
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
