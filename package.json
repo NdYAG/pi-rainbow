@@ -1,6 +1,6 @@
 {
 	"name": "pi-rainbow",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "Pi extension that renders CSS color values in assistant messages as terminal color swatches",
 	"keywords": [
 		"pi-package",
@@ -16,7 +16,9 @@
 		"LICENSE"
 	],
 	"pi": {
-		"extensions": ["./src/pi-rainbow.ts"],
+		"extensions": [
+			"./src/pi-rainbow.ts"
+		],
 		"image": "https://daix.me/pi-rainbow/dark.png"
 	},
 	"scripts": {
