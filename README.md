@@ -39,7 +39,7 @@ Comma and space syntax, `/ alpha`, percentages, and `deg`/`turn`/`rad`/`grad` hu
 
 - Display only. It affects the interactive TUI and does not change session data or the context sent to the model. HTML export does not show swatches.
 - Alpha is accepted but shown opaque.
-- `oklch()` and `oklab()` are converted to sRGB with a per-channel clamp, not CSS gamut mapping, so out-of-gamut colors can differ from a browser.
+- `oklch()` and `oklab()` are converted to sRGB with a per-channel clamp (clip), not the chroma-reducing gamut mapping described in CSS Color 4. This matches the default behavior of current major browsers, which also clip; CSS gamut mapping is not enabled by default in any of them yet. Out-of-gamut colors can still differ from a browser, because browsers clip to the display's gamut (for example Display P3), while swatches are limited to sRGB.
 - Not supported: `color()`, `lab()`, `lch()`, `hwb()`, `var()`, `calc()`, relative color syntax.
 - It rewrites Markdown before parsing, so other markdown transformers can interact with the injected escape sequences.
 - Colorized code blocks carry a zero-width marker after the language name (` ```css\u200b `) so pi does not highlight them a second time. Only blocks that contain a color are rewritten.
