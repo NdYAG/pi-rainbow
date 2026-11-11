@@ -208,6 +208,53 @@ function findClosingDelimiter(line: string, delimiter: string, from: number): nu
 	return -1;
 }
 
+/** The text of a code span as CommonMark renders it: one space is stripped from each side when both sides have one. */
+function codeSpanText(content: string): string {
+	return content.length > 2 && content.startsWith(" ") && content.endsWith(" ") && content.trim() !== ""
+		? content.slice(1, -1)
+		: content;
+}
+
+/** Write `text` as a code span that renders as exactly `text`. */
+function writeCodeSpan(text: string): string {
+	const runs = new Set((text.match(/`+/g) ?? []).map((run) => run.length));
+	let length = 1;
+	while (runs.has(length)) length++;
+	const delimiter = "`".repeat(length);
+	// CommonMark strips one space from both sides, so pad when that would eat real text, and when a backtick would
+	// otherwise touch the delimiter.
+	const strippable = text.startsWith(" ") && text.endsWith(" ") && text.trim() !== "";
+	const padded = strippable || text.startsWith("`") || text.endsWith("`");
+	return padded ? `${delimiter} ${text} ${delimiter}` : `${delimiter}${text}${delimiter}`;
+}
+
+/**
+ * Split the content of an inline code span around the color values in it, so that pi still styles each remaining
+ * part as code and the swatches sit between the parts. A functional color is recognized anywhere; a hex color only
+ * after a property name (`color: #fff`), because `#abc` in code is often an issue number or an identifier.
+ * Returns undefined to keep the span unchanged.
+ */
+function splitInlineCode(content: string): string | undefined {
+	const text = codeSpanText(content);
+	let result = "";
+	let cursor = 0;
+	COLOR_TOKEN.lastIndex = 0;
+	for (const match of text.matchAll(COLOR_TOKEN)) {
+		const start = match.index;
+		const end = start + match[0].length;
+		if (!hasTokenBoundaries(text, start, end)) continue;
+		if (match[0].startsWith("#") && !/[A-Za-z_-][\w-]*\s*:\s*$/.test(text.slice(0, start))) continue;
+		const rgb = parseRgbToken(match[0]);
+		if (!rgb) continue;
+		if (start > cursor) result += writeCodeSpan(text.slice(cursor, start));
+		result += renderSwatch(match[0], rgb, false);
+		cursor = end;
+	}
+	if (cursor === 0) return undefined;
+	if (cursor < text.length) result += writeCodeSpan(text.slice(cursor));
+	return result;
+}
+
 /**
  * A color token must not be glued to identifier characters (`my-rgb(...)`, `#abcdef1`) and must not be an id
  * reference such as `url(#abc)`.
@@ -230,15 +277,16 @@ function transformLine(line: string): string {
 			while (line[end] === "`") end++;
 			const delimiter = line.slice(position, end);
 			if (!inlineCodeFence) {
-				// An inline code span whose whole content is one color token renders as a swatch.
+				// An inline code span that is one color token becomes a swatch; one that contains colors is split around them.
 				const close = findClosingDelimiter(line, delimiter, end);
 				if (close >= 0 && !isMarkdownLink(line, position) && !isUrl(line, position)) {
 					const content = line.slice(end, close);
 					COLOR_TOKEN.lastIndex = 0;
 					const whole = COLOR_TOKEN.exec(content);
 					const rgb = whole?.index === 0 && whole[0] === content ? parseRgbToken(content) : undefined;
-					if (rgb) {
-						result += renderSwatch(content, rgb);
+					const replacement = rgb ? renderSwatch(content, rgb) : splitInlineCode(content);
+					if (replacement !== undefined) {
+						result += replacement;
 						position = close + delimiter.length;
 						continue;
 					}

@@ -51,8 +51,113 @@ describe("pi-rainbow extension", () => {
 		expect(transformRainbowMarkdown("`#f00` and `#00f`", assistantContext).match(/\x1b\[48;/g)).toHaveLength(2);
 	});
 
+	describe("inline code with other content", () => {
+		const swatchCount = (text: string) => text.match(/\x1b\[48;/g)?.length ?? 0;
+		const transform = (markdown: string) => transformRainbowMarkdown(markdown, assistantContext);
+		// What pi shows for the Markdown, without styling.
+		const renderPlain = async (markdown: string, width = 80) => {
+			const { Markdown } = await import("@earendil-works/pi-tui");
+			const { getMarkdownTheme } = await import("@earendil-works/pi-coding-agent");
+			return new Markdown(markdown, 0, 0, getMarkdownTheme()).render(width).map((line) => stripAnsi(line).trimEnd());
+		};
+
+		test("splits a span around a functional color value", () => {
+			const result = transform("`background: rgb(0 0 0)`");
+			expect(stripAnsi(result)).toBe("`background: `rgb(0 0 0)");
+			expect(swatchCount(result)).toBe(1);
+		});
+
+		test("splits around several colors and keeps the text between them", () => {
+			const result = transform("`oklch(0.7 0.15 250) or hsl(0 100% 50%)`");
+			expect(swatchCount(result)).toBe(2);
+			expect(stripAnsi(result)).toBe("oklch(0.7 0.15 250)`  or  `hsl(0 100% 50%)");
+		});
+
+		test("splits a span with a hex color after a property name", () => {
+			for (const [markdown, plain, swatches] of [
+				["`color: #fff`", "`color: `#fff", 1],
+				["`--brand: #3b82f6`", "`--brand: `#3b82f6", 1],
+				["`color:#fff; background: #000`", "`color:`#fff`; background: `#000", 2],
+			] as const) {
+				const result = transform(markdown);
+				expect(stripAnsi(result)).toBe(plain);
+				expect(swatchCount(result)).toBe(swatches);
+			}
+		});
+
+		test("keeps a hex color that does not follow a property name", () => {
+			for (const markdown of [
+				"`git log #abc`",
+				"`fix #123abc`",
+				"`#define X #fff`",
+				"`x #fff`",
+				"`border: 1px solid #fff`",
+			]) {
+				expect(transform(markdown)).toBe(markdown);
+			}
+		});
+
+		test("keeps spans with invalid or glued color values", () => {
+			for (const markdown of ["`my-rgb(0 0 0)`", "`rgb(0 0 0)x`", "`rgb(300, 0, 0) x`", "`rgb(var(--x)) y`", "`oklch(from red l c h) z`"]) {
+				expect(transform(markdown)).toBe(markdown);
+			}
+		});
+
+		test("shows the same text as the original span, whatever the spaces and backticks", async () => {
+			for (const markdown of [
+				"`rgb(0 0 0) ; rgb(1 1 1)`",
+				"`rgb(0 0 0) rgb(1 1 1)`",
+				"`rgb(0 0 0)  rgb(1 1 1)`",
+				"` color: #fff `",
+				"` color: #fff`",
+				"`color: #fff `",
+				"`  color: #fff  `",
+				"``a`b: rgb(0 0 0)``",
+				"``` `a rgb(0 0 0) b` ```",
+				"``  `a rgb(0 0 0) b`  ``",
+				"`` ``a`` rgb(0 0 0) ``",
+				"x `rgb(0 0 0) y` z `color: #fff` w",
+			]) {
+				const result = transform(markdown);
+				expect(swatchCount(result), markdown).toBeGreaterThan(0);
+				// The swatch carries no padding, so the visible text must match the unsplit span exactly.
+				expect(await renderPlain(result), markdown).toEqual(await renderPlain(markdown));
+			}
+		});
+
+		test("does not leave empty spans next to a swatch", () => {
+			expect(stripAnsi(transform("`rgb(0 0 0)`"))).toBe(" rgb(0 0 0) ");
+			expect(stripAnsi(transform("`rgb(0 0 0) x`"))).toBe("rgb(0 0 0)` x`");
+			expect(stripAnsi(transform("`x rgb(0 0 0)`"))).toBe("`x `rgb(0 0 0)");
+		});
+
+		test("does not split inside links, URLs, headings, or quotes", () => {
+			for (const markdown of [
+				"[`color: #fff`](https://example.test)",
+				"https://example.test/`color: #fff`",
+				"# `color: #fff`",
+				"> `color: #fff`",
+			]) {
+				expect(transform(markdown)).toBe(markdown);
+			}
+		});
+
+		test("keeps the code color on every segment, also after wrapping", async () => {
+			const { Markdown } = await import("@earendil-works/pi-tui");
+			const { getMarkdownTheme } = await import("@earendil-works/pi-coding-agent");
+			const theme = getMarkdownTheme();
+			const codeStart = theme.code("x").split("x")[0];
+			const lines = new Markdown(transform("`aaaaaaaa bbbbbbbb: rgb(0 0 0) cccccccc dddddddd`"), 0, 0, theme).render(18);
+			// Every line holding code text starts in the code color, as with an unsplit span.
+			for (const line of lines.filter((l) => /[a-d]/.test(stripAnsi(l)))) expect(line.startsWith(codeStart)).toBe(true);
+			expect(lines.map((l) => stripAnsi(l).trimEnd()).join(" ")).toBe(
+				(await renderPlain("`aaaaaaaa bbbbbbbb: rgb(0 0 0) cccccccc dddddddd`", 18)).join(" "),
+			);
+		});
+	});
+
 	test("leaves inline code with other content or no closing delimiter unchanged", () => {
-		for (const markdown of ["`color: #fff`", "`#fff", "`rgb(300, 0, 0)`", "[x](`#fff`)"]) {
+		for (const markdown of ["`#fff", "`rgb(300, 0, 0)`", "[x](`#fff`)"]) {
 			expect(transformRainbowMarkdown(markdown, assistantContext)).toBe(markdown);
 		}
 	});

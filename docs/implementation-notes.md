@@ -13,7 +13,7 @@ Render standalone CSS-style color values in finalized assistant prose as termina
 
 1. Pi passes user/assistant/thinking Markdown through registered transformers inside `Markdown.render()`, before the Markdown parser runs.
 2. The extension leaves user, thinking, and streaming content untouched.
-3. For finalized assistant text it scans line by line. It preserves fenced code blocks, URLs, complete Markdown links, headings, and blockquotes. Inline code spans are preserved unless the whole span is exactly one color value, in which case the span (including backticks) is replaced by a swatch.
+3. For finalized assistant text it scans line by line. It preserves fenced code blocks, URLs, complete Markdown links, headings, and blockquotes. Inline code spans are preserved unless they contain colors: a span that is exactly one color value is replaced by a swatch (backticks included); otherwise it is split around the colors (see below).
 4. It parses `#rgb`, `#rrggbb`, `rgb()`/`rgba()`, `hsl()`/`hsla()`, `oklch()` and `oklab()` values (comma or space syntax, optional `/ alpha`, percentages, `deg`/`turn`/`rad`/`grad` hues), validates ranges, then emits terminal foreground/background ANSI sequences. The foreground is black or white based on higher WCAG contrast.
 5. Fenced code blocks (closed, top-level or indented under a list) of a color-friendly language are handled separately, see below.
 6. The built-in Markdown parser renders the transformed text. Terminal wrapping treats ANSI sequences as zero-width.
@@ -27,6 +27,14 @@ Injecting ANSI into fence content before pi highlights it does not work: highlig
 3. Re-emit the fence as ```` ```<info>\u200b ````. pi's `supportsLanguage()` no longer matches, so it does not highlight again and only wraps each line in `mdCodeBlock`; a leading `\x1b[39m` on each line cancels that wrapper so unscoped code keeps the default foreground, as with normal highlighting. The zero-width space has no visible width, so the border still reads ```` ```css ````.
 
 Blocks without a valid color, unclosed fences, and languages outside the allowlist are returned unchanged.
+
+## Inline code spans
+
+pi renders a code span as `theme.code(text)` on its own, and an extension cannot hook that step, so ANSI inside a span would be styled over (and its resets would cut the code color short). The extension instead splits the span in the Markdown source: `` `color: #fff` `` becomes `` `color: ` `` + swatch, and pi styles each remaining part as code. Swatches have no padding here, so the visible text is unchanged.
+
+- Functional colors match anywhere in the span; a hex color only after `name:`, since `#abc` in code is often an issue number or identifier.
+- Every part is written back as a code span that renders as exactly its text: the delimiter is longer than any backtick run inside, and a part is padded with one space on each side when CommonMark would otherwise strip its own leading and trailing spaces or when a backtick touches the delimiter. The original span's own padding is stripped first, as CommonMark does.
+- Empty parts are dropped. Wrapped lines keep the code color, because pi re-emits the active style on each line.
 
 ## Why session data is unaffected
 

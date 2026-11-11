@@ -31,7 +31,7 @@ Comma and space syntax, `/ alpha`, percentages, and `deg`/`turn`/`rad`/`grad` hu
 
 - Applies to finalized assistant text only. User messages, thinking blocks, and streaming output are untouched, so swatches appear when the message completes.
 - Standalone values in prose become swatches.
-- An inline code span whose whole content is one color value, such as `` `#ff0000` ``, also becomes a swatch. Inline code with other content, such as `` `color: #fff` ``, is unchanged.
+- An inline code span whose whole content is one color value, such as `` `#ff0000` ``, also becomes a swatch. A span that contains colors among other text is split around them, so the rest stays inline code: `` `background: rgb(0 0 0)` `` and `` `color: #fff` `` show a swatch where the color is. Functional colors (`rgb()`, `hsl()`, `oklch()`, ...) are recognized anywhere in the span; a hex color only right after a property name (`color: #fff`, `--brand: #3b82f6`), so `` `git log #abc` `` is unchanged.
 - Color values inside fenced code blocks become swatches too, without padding so columns stay aligned. Syntax highlighting is kept: the block is highlighted with pi's highlighter first, then swatches are inserted. This applies to blocks with no language or a color-friendly one (CSS/SCSS/Less, HTML/XML/SVG, JS/TS, JSON, YAML, TOML, ...). Other languages, where `#fff` is more likely a comment or directive, are unchanged.
 - Headings, blockquotes, links, URLs, and `url(#id)` references are unchanged.
 
